@@ -22,7 +22,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use cargo_lock::Lockfile;
-use cargo_metadata::{Metadata, MetadataCommand};
+use cargo_metadata::{Metadata, MetadataCommand, PackageId};
 use glob::glob;
 use pathdiff::diff_paths;
 use regex::Regex;
@@ -30,6 +30,7 @@ use rustc_serialize::hex::ToHex;
 use tempfile::TempDir;
 use url::Url;
 
+use crate::{features::{Features, get_per_platform_features}, settings::RazeSettings};
 use crate::util::{cargo_bin_path, package_ident};
 
 pub(crate) const DEFAULT_CRATE_REGISTRY_URL: &str = "https://crates.io";
@@ -127,6 +128,8 @@ pub struct RazeMetadata {
 
   // A map of all known crates with checksums. Use `checksums_for` to access data from this map.
   pub checksums: HashMap<String, String>,
+
+  pub features: HashMap<PackageId, Features>,
 }
 
 impl RazeMetadata {
@@ -157,6 +160,7 @@ pub struct RazeMetadataFetcher {
   index_url: Url,
   metadata_fetcher: Box<dyn MetadataFetcher>,
   lockfile_generator: Box<dyn LockfileGenerator>,
+  settings: Option<RazeSettings>,
 }
 
 impl RazeMetadataFetcher {
@@ -164,6 +168,7 @@ impl RazeMetadataFetcher {
     cargo_bin_path: P,
     registry_url: Url,
     index_url: Url,
+    settings: Option<RazeSettings>,
   ) -> RazeMetadataFetcher {
     let cargo_bin_pathbuf: PathBuf = cargo_bin_path.into();
     RazeMetadataFetcher {
@@ -175,7 +180,18 @@ impl RazeMetadataFetcher {
       lockfile_generator: Box::new(CargoLockfileGenerator {
         cargo_bin_path: cargo_bin_pathbuf,
       }),
+      settings,
     }
+  }
+
+  pub fn new_with_settings(settings: Option<RazeSettings>) -> RazeMetadataFetcher {
+    RazeMetadataFetcher::new(
+      cargo_bin_path(),
+      // UNWRAP: The default is covered by testing and should never return err
+      Url::parse(DEFAULT_CRATE_REGISTRY_URL).unwrap(),
+      Url::parse(DEFAULT_CRATE_INDEX_URL).unwrap(),
+      settings,
+    )
   }
 
   /// Reassign the [`crate::metadata::MetadataFetcher`] associated with the Raze Metadata Fetcher
@@ -480,23 +496,21 @@ impl RazeMetadataFetcher {
       .metadata_fetcher
       .fetch_metadata(cargo_dir.as_ref(), /*include_deps=*/ true)?;
 
+    // In this function because it's metadata, even though it's not return by "cargo metadata"
+    let platform_features = match self.settings.as_ref() {
+      Some(settings) => {
+        get_per_platform_features(cargo_dir.path(), settings, &metadata.packages)?
+      },
+      None => HashMap::new(),
+    };
+
     Ok(RazeMetadata {
       metadata,
       checksums,
       cargo_workspace_root,
       lockfile: output_lockfile,
+      features: platform_features,
     })
-  }
-}
-
-impl Default for RazeMetadataFetcher {
-  fn default() -> RazeMetadataFetcher {
-    RazeMetadataFetcher::new(
-      cargo_bin_path(),
-      // UNWRAP: The default is covered by testing and should never return err
-      Url::parse(DEFAULT_CRATE_REGISTRY_URL).unwrap(),
-      Url::parse(DEFAULT_CRATE_INDEX_URL).unwrap(),
-    )
   }
 }
 
@@ -603,6 +617,7 @@ pub mod tests {
       cargo_bin_path(),
       Url::parse(&mock_server.base_url()).unwrap(),
       Url::parse(&format!("file://{}", tempdir.as_ref().display())).unwrap(),
+      None,
     );
     fetcher.set_metadata_fetcher(Box::new(DummyCargoMetadataFetcher {
       metadata_template: None,
@@ -633,7 +648,7 @@ pub mod tests {
     let mut toml = File::create(&toml_path).unwrap();
     toml.write_all(basic_toml_contents().as_bytes()).unwrap();
 
-    let mut fetcher = RazeMetadataFetcher::default();
+    let mut fetcher = RazeMetadataFetcher::new_with_settings(None);
     fetcher.set_lockfile_generator(Box::new(DummyLockfileGenerator {
       lockfile_contents: None,
     }));
@@ -657,7 +672,7 @@ pub mod tests {
       lock.write_all(basic_lock_contents().as_bytes()).unwrap();
     }
 
-    let mut fetcher = RazeMetadataFetcher::default();
+    let mut fetcher = RazeMetadataFetcher::new_with_settings(None);
     fetcher.set_lockfile_generator(Box::new(DummyLockfileGenerator {
       lockfile_contents: None,
     }));
@@ -674,7 +689,7 @@ pub mod tests {
       toml.write_all(b"hello").unwrap();
     }
 
-    let fetcher = RazeMetadataFetcher::default();
+    let fetcher = RazeMetadataFetcher::new_with_settings(None);
     assert!(fetcher.fetch_metadata(dir.as_ref(), None, None).is_err());
   }
 
