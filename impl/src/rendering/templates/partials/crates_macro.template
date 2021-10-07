@@ -2,12 +2,12 @@
 _DEPENDENCIES = {
 {%- for workspace_member in workspace.workspace_members %}
 {%- if workspace_member %}
-    "{{ bazel_package_name ~ "/" ~ workspace_member | trim_start_matches(pat="/") }}": {
+    "{{ bazel_package_name ~ "/" ~ workspace_member.path | trim_start_matches(pat="/") | trim_end_matches(pat="/") }}": {
 {%- else %}
     "{{ bazel_package_name }}": {
 {%- endif %}
 {%- for crate in crates %}
-{%- if not crate.is_proc_macro and workspace_member in crate.workspace_member_dependents %}
+{%- if not crate.is_proc_macro and workspace_member.path in crate.workspace_member_dependents %}
 {%- set crate_name_sanitized = crate.pkg_name | replace(from="-", to="_") %}
         "{{ crate.pkg_name }}": "{{ crate.workspace_path_to_crate }}:{{ crate_name_sanitized }}",
 {%- endif %}
@@ -20,12 +20,12 @@ _DEPENDENCIES = {
 _PROC_MACRO_DEPENDENCIES = {
 {%- for workspace_member in workspace.workspace_members %}
 {%- if workspace_member %}
-    "{{ bazel_package_name ~ "/" ~ workspace_member | trim_start_matches(pat="/") }}": {
+    "{{ bazel_package_name ~ "/" ~ workspace_member.path | trim_start_matches(pat="/") | trim_end_matches(pat="/") }}": {
 {%- else %}
     "{{ bazel_package_name }}": {
 {%- endif %}
 {%- for crate in crates %}
-{%- if crate.is_proc_macro and workspace_member in crate.workspace_member_dependents %}
+{%- if crate.is_proc_macro and workspace_member.path in crate.workspace_member_dependents %}
 {%- set crate_name_sanitized = crate.pkg_name | replace(from="-", to="_") %}
         "{{ crate.pkg_name }}": "{{ crate.workspace_path_to_crate }}:{{ crate_name_sanitized }}",
 {%- endif %}
@@ -38,12 +38,12 @@ _PROC_MACRO_DEPENDENCIES = {
 _DEV_DEPENDENCIES = {
 {%- for workspace_member in workspace.workspace_members %}
 {%- if workspace_member %}
-    "{{ bazel_package_name ~ "/" ~ workspace_member | trim_start_matches(pat="/") }}": {
+    "{{ bazel_package_name ~ "/" ~ workspace_member.path | trim_start_matches(pat="/") | trim_end_matches(pat="/") }}": {
 {%- else %}
     "{{ bazel_package_name }}": {
 {%- endif %}
 {%- for crate in crates %}
-{%- if not crate.is_proc_macro and workspace_member in crate.workspace_member_dev_dependents %}
+{%- if not crate.is_proc_macro and workspace_member.path in crate.workspace_member_dev_dependents %}
 {%- set crate_name_sanitized = crate.pkg_name | replace(from="-", to="_") %}
         "{{ crate.pkg_name }}": "{{ crate.workspace_path_to_crate }}:{{ crate_name_sanitized }}",
 {%- endif %}
@@ -56,12 +56,12 @@ _DEV_DEPENDENCIES = {
 _DEV_PROC_MACRO_DEPENDENCIES = {
 {%- for workspace_member in workspace.workspace_members %}
 {%- if workspace_member %}
-    "{{ bazel_package_name ~ "/" ~ workspace_member | trim_start_matches(pat="/") }}": {
+    "{{ bazel_package_name ~ "/" ~ workspace_member.path | trim_start_matches(pat="/") | trim_end_matches(pat="/") }}": {
 {%- else %}
     "{{ bazel_package_name }}": {
 {%- endif %}
 {%- for crate in crates %}
-{%- if crate.is_proc_macro and workspace_member in crate.workspace_member_dev_dependents %}
+{%- if crate.is_proc_macro and workspace_member.path in crate.workspace_member_dev_dependents %}
 {%- set crate_name_sanitized = crate.pkg_name | replace(from="-", to="_") %}
         "{{ crate.pkg_name }}": "{{ crate.workspace_path_to_crate }}:{{ crate_name_sanitized }}",
 {%- endif %}
