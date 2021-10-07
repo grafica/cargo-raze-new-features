@@ -5,6 +5,7 @@ rust_test_suite(
             "tests/{{target.name}}.rs",
         {%- endfor %}
     ],
+    crate = ":{{ target_name_sanitized }}",
     data = []
     {%- if crate.raze_settings.data_attr %} + {{crate.raze_settings.data_attr}}
     {%- endif -%}
