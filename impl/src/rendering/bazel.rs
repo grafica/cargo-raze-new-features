@@ -454,7 +454,6 @@ impl BuildRenderer for BazelRenderer {
 
     for package in crate_contexts {
       if package.is_workspace_member {
-        eprintln!("RENDER WORKSPACE CRATE");
         let rendered_crate_build_file = self
           .render_workspace_crate(
             &workspace_context,
@@ -473,7 +472,6 @@ impl BuildRenderer for BazelRenderer {
           contents: final_crate_build_file,
         });
       } else {
-        eprintln!("RENDER NON WORKSPACE CRATE");
         let rendered_crate_build_file = self
           .render_remote_crate(
             &workspace_context,

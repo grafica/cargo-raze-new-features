@@ -83,8 +83,33 @@ impl CrateCatalogEntry {
     self.is_workspace_crate
   }
 
+  fn local_relative_dir(&self) -> String {
+    let full_path = self.package.manifest_path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
+    let root = format!("{}/", &self.workspace_root);
+    full_path.replace(&root, "")
+  }
+
+  fn local_build_file(&self) -> Result<String> {
+    Ok(format!(
+      "{}/BUILD.bazel",
+      self.local_relative_dir()
+    ))
+  }
+
+  fn emit_local_crate(&self) -> Result<String> {  
+    Ok(format!(
+      "//{}:{}",
+      self.local_relative_dir(),
+      &self.sanitized_name
+    ))
+  }
+
   /// Yields the expected location of the build file (relative to execution path).
   pub fn local_build_path(&self, settings: &RazeSettings) -> Result<String> {
+    if self.is_workspace_crate {
+      return self.local_build_file();
+    }
+  
     match settings.genmode {
       GenMode::Remote => Ok(format!("remote/BUILD.{}.bazel", &self.package_ident,)),
       GenMode::Vendored => Ok(format!(
@@ -100,6 +125,10 @@ impl CrateCatalogEntry {
 
   /// Yields the precise path to this dependency for the provided settings.
   pub fn workspace_path(&self, settings: &RazeSettings) -> Result<String> {
+    if self.is_workspace_crate {
+      return self.emit_local_crate();
+    }
+  
     match settings.genmode {
       GenMode::Remote => Ok(format!(
         "@{}__{}__{}//",
@@ -127,6 +156,10 @@ impl CrateCatalogEntry {
 
   /// Emits a complete path to this dependency and default target using the given settings.
   pub fn workspace_path_and_default_target(&self, settings: &RazeSettings) -> Result<String> {
+    if self.is_workspace_crate {
+      return self.local_build_file();
+    }
+  
     match settings.genmode {
       GenMode::Remote => Ok(format!(
         "@{}__{}__{}//:{}",

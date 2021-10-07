@@ -170,6 +170,7 @@ pub struct CrateContext {
   pub is_binary_dependency: bool,
   pub targets: Vec<BuildableTarget>,
   pub build_script_target: Option<BuildableTarget>,
+  pub test_targets: Vec<BuildableTarget>,
   pub links: Option<String>,
   pub source_details: SourceDetails,
   pub sha256: Option<String>,

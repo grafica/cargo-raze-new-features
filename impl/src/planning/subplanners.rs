@@ -293,7 +293,7 @@ impl<'planner> CrateSubplanner<'planner> {
     assert!(manifest_path.is_absolute());
     let package_root = self.find_package_root_for_manifest(&manifest_path)?;
 
-    let mut targets = self.produce_targets(&package_root)?;
+    let (mut targets, test_targets) = self.produce_targets(&package_root)?.iter().cloned().partition(|n| n.kind != "test");
     let build_script_target_opt = self.take_build_script_target(&mut targets);
 
     let lib_target_name = targets
@@ -426,6 +426,7 @@ impl<'planner> CrateSubplanner<'planner> {
       sha256: self.sha256.clone(),
       lib_target_name,
       targets,
+      test_targets,
     };
 
     Ok(context)
