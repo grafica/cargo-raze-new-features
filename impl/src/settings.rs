@@ -126,6 +126,10 @@ pub struct RazeSettings {
    */
   #[serde(default = "default_raze_settings_experimental_api")]
   pub experimental_api: bool,
+
+  /// Create a plan for local crates
+  #[serde(default = "default_raze_settings_generate_local_crates")]
+  pub generate_local_crates: bool,
 }
 
 /// Override settings for individual crates (as part of `RazeSettings`).
@@ -331,6 +335,10 @@ fn default_crate_settings_field_data_attr() -> Option<String> {
   None
 }
 
+fn default_raze_settings_generate_local_crates() -> bool {
+  false
+}
+
 fn default_package_aliases_dir() -> String {
   "cargo".to_owned()
 }
@@ -478,6 +486,8 @@ struct RawRazeSettings {
   pub vendor_dir: Option<String>,
   #[serde(default)]
   pub experimental_api: Option<bool>,
+  #[serde(default)]
+  pub generate_local_crates: Option<bool>,
 }
 
 impl RawRazeSettings {
@@ -802,6 +812,7 @@ pub mod tests {
       rust_rules_workspace_name: default_raze_settings_rust_rules_workspace_name(),
       vendor_dir: default_raze_settings_vendor_dir(),
       experimental_api: default_raze_settings_experimental_api(),
+      generate_local_crates: false,
     }
   }
 
