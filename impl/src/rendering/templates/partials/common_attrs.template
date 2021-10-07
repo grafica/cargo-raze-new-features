@@ -11,12 +11,11 @@
         {%- endfor %}
     },
     {%- endif %}
-    crate_features = [
-        {%- for feature in crate.features %}
-        "{{feature}}",
-        {%- endfor %}
-    ],
+    {%- include "templates/partials/features.template" -%},
     crate_root = "{{ target.path }}",
+    {%- if target.kind != "bin" %}
+    crate_type = "{{ target.kind }}",
+    {%- endif %}
     data = []
     {%- if crate.raze_settings.data_attr %} + {{crate.raze_settings.data_attr}}
     {%- endif -%}
