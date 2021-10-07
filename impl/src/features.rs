@@ -22,11 +22,11 @@ use crate::settings::RazeSettings;
 use crate::util::cargo_bin_path;
 use anyhow::{Error, Result};
 use cargo_metadata::{Package, PackageId, Version};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 type UnconsolidatedFeatures = HashMap<PackageId, HashMap<String, HashSet<String>>>;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Features {
   pub features: Vec<String>,
   pub targeted_features: Vec<TargetedFeatures>,
@@ -41,7 +41,7 @@ impl Features {
   }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TargetedFeatures {
   pub platforms: Vec<String>,
   pub features: Vec<String>,

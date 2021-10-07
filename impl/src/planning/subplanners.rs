@@ -33,6 +33,7 @@ use crate::{
     WorkspaceContext, WorkspaceMember
   },
   error::{RazeError, PLEASE_FILE_A_BUG},
+  features::Features,
   metadata::RazeMetadata,
   planning::license,
   settings::{CrateSettings, GenMode, RazeSettings},
@@ -64,6 +65,7 @@ struct CrateSubplanner<'planner> {
   node: &'planner Node,
   crate_settings: Option<&'planner CrateSettings>,
   sha256: &'planner Option<String>,
+  features: &'planner Option<&'planner Features>,
 }
 
 /// An internal working planner for generating context for a whole workspace.
@@ -144,8 +146,8 @@ impl<'planner> WorkspaceSubplanner<'planner> {
       .keys()
       .any(|key| key == &own_package.name);
 
-    // Skip workspace members unless they are binary dependencies
-    if own_crate_catalog_entry.is_workspace_crate() && !is_binary_dep {
+    // Skip workspace members unless they are binary dependencies, or the settings indicate we should render them.
+    if own_crate_catalog_entry.is_workspace_crate() && !is_binary_dep && !self.settings.generate_local_crates {
       return None;
     }
 
@@ -170,6 +172,7 @@ impl<'planner> WorkspaceSubplanner<'planner> {
       node,
       crate_settings,
       sha256: &checksum_opt.map(|c| c.to_owned()),
+      features: &self.metadata.features.get(&node.id),
     };
 
     let res = crate_subplanner
@@ -256,6 +259,7 @@ impl<'planner> WorkspaceSubplanner<'planner> {
         to_alias.is_workspace_member_dependency
           || !to_alias.raze_settings.extra_aliased_targets.is_empty()
       })
+      .filter(|to_alias| !to_alias.is_workspace_member)
       .flat_map(|to_alias| {
         let pkg_name = to_alias.pkg_name.replace("-", "_");
         let target = format!("{}:{}", &to_alias.workspace_path_to_crate, &pkg_name);
@@ -397,10 +401,11 @@ impl<'planner> CrateSubplanner<'planner> {
       pkg_version: package.version.clone(),
       edition: package.edition.clone(),
       license: self.produce_license(),
-      features: self.node.features.clone(),
+      features: self.features.unwrap_or(&Features::empty()).clone(),
       workspace_member_dependents,
       workspace_member_dev_dependents,
       workspace_member_build_dependents,
+      is_workspace_member: self.crate_catalog_entry.is_workspace_crate(),
       is_workspace_member_dependency,
       is_binary_dependency,
       is_proc_macro,
@@ -811,6 +816,8 @@ impl<'planner> CrateSubplanner<'planner> {
         targets.push(BuildableTarget {
           name: target.name.clone(),
           path: package_root_path_str.clone(),
+          test: target.test,
+          doctest: target.doctest,
           kind: kind.clone(),
           edition: target.edition.clone(),
         });

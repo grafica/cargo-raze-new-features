@@ -549,7 +549,7 @@ mod tests {
         .workspace_context
         .workspace_members
         .iter()
-        .any(|member| match member.file_name() {
+        .any(|member| match member.path.file_name() {
           Some(file_name) => file_name == binary_dep_name.as_str(),
           None => false,
         }),

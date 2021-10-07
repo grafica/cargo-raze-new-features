@@ -16,7 +16,7 @@ use std::{
   collections::{BTreeMap, BTreeSet},
 };
 
-use crate::{settings::CrateSettings};
+use crate::{features::Features, settings::CrateSettings};
 use camino::Utf8PathBuf;
 use cargo_metadata::PackageId;
 use semver::Version;
@@ -44,6 +44,8 @@ pub struct DependencyAlias {
 pub struct BuildableTarget {
   pub kind: String,
   pub name: String,
+  pub test: bool,
+  pub doctest: bool,
 
   /// The path in Bazel's format (i.e. with forward slashes) to the target's entry point.
   pub path: String,
@@ -158,11 +160,12 @@ pub struct CrateContext {
   pub default_deps: CrateDependencyContext,
   pub targeted_deps: Vec<CrateTargetedDepContext>,
   pub license: LicenseData,
-  pub features: Vec<String>,
+  pub features: Features,
   pub workspace_path_to_crate: String,
   pub workspace_member_dependents: Vec<Utf8PathBuf>,
   pub workspace_member_dev_dependents: Vec<Utf8PathBuf>,
   pub workspace_member_build_dependents: Vec<Utf8PathBuf>,
+  pub is_workspace_member: bool,
   pub is_workspace_member_dependency: bool,
   pub is_binary_dependency: bool,
   pub targets: Vec<BuildableTarget>,
