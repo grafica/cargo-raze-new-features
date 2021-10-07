@@ -18,6 +18,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use camino::Utf8PathBuf;
 use cargo_metadata::{Metadata, Node, Package, PackageId};
 
 use crate::{
@@ -39,6 +40,8 @@ pub struct CrateCatalogEntry {
   pub package_ident: String,
   // Is this a member of the root crate workspace?
   pub is_workspace_crate: bool,
+  // Path to the root of the workspace
+  pub workspace_root: String,
   // A list of workspace members that depend on this entry
   pub workspace_member_dependents: Vec<PackageId>,
 }
@@ -47,6 +50,7 @@ impl CrateCatalogEntry {
   pub fn new(
     package: &Package,
     is_workspace_crate: bool,
+    workspace_root: Utf8PathBuf,
     workspace_member_dependents: Vec<PackageId>,
   ) -> Self {
     let sanitized_name = package.name.replace("-", "_");
@@ -58,6 +62,7 @@ impl CrateCatalogEntry {
       sanitized_name,
       sanitized_version,
       is_workspace_crate,
+      workspace_root: workspace_root.into_string(),
       workspace_member_dependents,
     }
   }
@@ -179,6 +184,7 @@ impl CrateCatalog {
         CrateCatalogEntry::new(
           package,
           metadata.workspace_members.contains(&package.id),
+          metadata.workspace_root.clone(),
           workspace_crates
             .iter()
             .filter_map(|node| {

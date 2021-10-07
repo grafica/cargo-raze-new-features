@@ -20,7 +20,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-
+use camino::Utf8PathBuf;
 use cargo_metadata::Metadata;
 use docopt::Docopt;
 
@@ -230,13 +230,13 @@ fn render_files(
   planned_build: &PlannedBuild,
   local_metadata: &Metadata,
 ) -> Result<(RenderDetails, Vec<FileOutputs>)> {
-  let cargo_raze_working_dir = find_bazel_workspace_root(local_metadata.workspace_root.as_ref())
-    .unwrap_or(env::current_dir()?);
+  let cargo_raze_working_dir =
+    Utf8PathBuf::from_path_buf(find_bazel_workspace_root(local_metadata.workspace_root.as_path().as_ref()).unwrap_or(env::current_dir()?)).unwrap();
 
   let mut bazel_renderer = BazelRenderer::new();
   let render_details = RenderDetails {
     cargo_root: metadata.cargo_workspace_root.clone(),
-    path_prefix: PathBuf::from(&settings.workspace_path.trim_start_matches('/')),
+    path_prefix: Utf8PathBuf::from(&settings.workspace_path.trim_start_matches('/')),
     package_aliases_dir: settings.package_aliases_dir.clone(),
     vendored_buildfile_name: settings.output_buildfile_suffix.clone(),
     bazel_root: cargo_raze_working_dir,
@@ -269,7 +269,7 @@ fn write_files(
       .join("remote");
     // Clean out the "remote" directory so users can easily see what build files are relevant
     if remote_dir.exists() {
-      let build_glob = format!("{}/BUILD*.bazel", remote_dir.display());
+      let build_glob = format!("{}/BUILD*.bazel", remote_dir.to_string());
       for entry in glob::glob(&build_glob)? {
         fs::remove_file(entry?)?;
       }
@@ -278,7 +278,7 @@ fn write_files(
 
   for output in bazel_file_outputs.iter() {
     if options.flag_dryrun.unwrap_or(false) {
-      println!("{}:\n{}", output.path.display(), output.contents);
+      println!("{}:\n{}", output.path.to_string(), output.contents);
       continue;
     }
     // Ensure all parent directories exist
@@ -286,7 +286,7 @@ fn write_files(
       fs::create_dir_all(parent)?
     }
     write_to_file(
-      &output.path,
+      &output.path.as_ref(),
       &output.contents,
       options.flag_verbose.unwrap_or(false),
     )?;

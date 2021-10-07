@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use anyhow::Result;
+use camino::Utf8Path;
 use pathdiff::diff_paths;
 use tera::{self, Context, Tera};
 
@@ -23,7 +24,7 @@ use crate::{
   rendering::{BuildRenderer, FileOutputs, RenderDetails},
 };
 
-use std::{error::Error, path::Path};
+use std::error::Error;
 
 macro_rules! unwind_tera_error {
   ($err:ident) => {{
@@ -193,7 +194,7 @@ impl BazelRenderer {
     is_remote_mode: bool,
   ) -> Result<Vec<FileOutputs>> {
     let mut file_outputs = Vec::new();
-    for member_path in planned_build.workspace_context.workspace_members.iter() {
+    for member in planned_build.workspace_context.workspace_members.iter() {
       let rendered_alias_build_file_res = self.render_workspace_aliases(
         &planned_build.workspace_context,
         &planned_build.workspace_aliases,
@@ -207,11 +208,8 @@ impl BazelRenderer {
         })?;
 
       // Only the root package will have a `crates.bzl` file to export
-      let is_root_workspace_member = member_path
-        .to_str()
-        // Root workspace paths will are represented by an exmpty string
-        .map(|member_path| member_path.is_empty())
-        .unwrap_or(false);
+      // Root workspace paths will are represented by an exmpty string
+      let is_root_workspace_member = member.path.to_string().is_empty();
       if is_root_workspace_member {
         // In remote genmode, a `crates.bzl` file will always be rendered. For
         // vendored genmode, one is only rendered when using the experimental
@@ -224,7 +222,7 @@ impl BazelRenderer {
       file_outputs.push(FileOutputs {
         path: render_details
           .cargo_root
-          .join(member_path)
+          .join(&member.path)
           .join(&render_details.package_aliases_dir)
           .join("BUILD.bazel"),
         contents: rendered_alias_build_file,
@@ -235,7 +233,7 @@ impl BazelRenderer {
 
   fn render_crates_bzl_package_file(
     &self,
-    path_prefix: &Path,
+    path_prefix: &Utf8Path,
     file_outputs: &[FileOutputs],
   ) -> Result<Option<FileOutputs>> {
     let crates_bzl_pkg_file = path_prefix.join("BUILD.bazel");
@@ -275,7 +273,7 @@ fn include_additional_build_file(
           crate_name_opt: Some(package.pkg_name.to_owned()),
           message: format!(
             "failed to read additional_build_file '{}': {}",
-            file_path.display(),
+            file_path.to_string(),
             e
           ),
         })?;
@@ -289,7 +287,7 @@ fn include_additional_build_file(
           .additional_build_file
           .as_ref()
           .unwrap()
-          .display(),
+          .to_string(),
         additional_content
       ))
     }

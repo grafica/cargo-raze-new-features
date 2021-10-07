@@ -92,6 +92,7 @@ mod tests {
   };
 
   use super::*;
+  use camino::Utf8PathBuf;
   use cargo_metadata::PackageId;
   use indoc::indoc;
   use itertools::Itertools;
@@ -104,7 +105,7 @@ mod tests {
     metadata.resolve = None;
     RazeMetadata {
       metadata,
-      cargo_workspace_root: PathBuf::from("/some/crate"),
+      cargo_workspace_root: Utf8PathBuf::from("/some/crate"),
       lockfile: None,
       checksums: HashMap::new(),
       features: HashMap::new(),
@@ -192,7 +193,7 @@ mod tests {
 
     RazeMetadata {
       metadata,
-      cargo_workspace_root: PathBuf::from("/some/crate"),
+      cargo_workspace_root: Utf8PathBuf::from("/some/crate"),
       lockfile: None,
       checksums: HashMap::new(),
       features: HashMap::new(),

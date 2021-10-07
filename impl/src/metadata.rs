@@ -21,6 +21,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use camino::Utf8PathBuf;
 use cargo_lock::Lockfile;
 use cargo_metadata::{Metadata, MetadataCommand, PackageId};
 use glob::glob;
@@ -121,7 +122,7 @@ pub struct RazeMetadata {
   // The absolute path to the current project's cargo workspace root. Note that the workspace
   // root in `metadata` will be inside of a temporary directory. For details see:
   // https://doc.rust-lang.org/cargo/reference/workspaces.html#root-package
-  pub cargo_workspace_root: PathBuf,
+  pub cargo_workspace_root: Utf8PathBuf,
 
   // The metadata of a lockfile that was generated as a result of fetching metadata
   pub lockfile: Option<Lockfile>,
@@ -280,7 +281,7 @@ impl RazeMetadataFetcher {
   }
 
   /// Creates a copy workspace in a temporary directory for fetching the metadata of the current workspace
-  fn make_temp_workspace(&self, cargo_workspace_root: &Path) -> Result<(TempDir, PathBuf)> {
+  fn make_temp_workspace(&self, cargo_workspace_root: &Path) -> Result<(TempDir, Utf8PathBuf)> {
     let temp_dir = TempDir::new()?;
 
     // First gather metadata without downloading any dependencies so we can identify any path dependencies.

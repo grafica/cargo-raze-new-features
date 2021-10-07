@@ -18,6 +18,7 @@ use crate::{
   util,
 };
 use anyhow::{anyhow, bail, Context, Result};
+use camino::{Utf8Path, Utf8PathBuf};
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use semver::VersionReq;
 use serde::{Deserialize, Serialize};
@@ -247,7 +248,7 @@ pub struct CrateSettings {
   /// Note: This field should be a path to a file relative to the Cargo workspace root. For more
   /// context, see https://doc.rust-lang.org/cargo/reference/workspaces.html#root-package
   #[serde(default)]
-  pub additional_build_file: Option<PathBuf>,
+  pub additional_build_file: Option<Utf8PathBuf>,
 }
 
 /// Describes how dependencies should be managed in tree.
@@ -356,15 +357,15 @@ pub fn format_registry_url(registry_url: &str, name: &str, version: &str) -> Str
 
 /// Check that the the `additional_build_file` represents a path to a file from the cargo workspace root
 fn validate_crate_setting_additional_build_file(
-  additional_build_file: &Path,
-  cargo_workspace_root: &Path,
+  additional_build_file: &Utf8Path,
+  cargo_workspace_root: &Utf8Path,
 ) -> Result<()> {
   let additional_build_file = cargo_workspace_root.join(&additional_build_file);
   if !additional_build_file.exists() {
     return Err(anyhow!(
       "File not found. `{}` should be a relative path from the cargo workspace root: {}",
-      additional_build_file.display(),
-      cargo_workspace_root.display()
+      additional_build_file.as_path(),
+      cargo_workspace_root
     ));
   }
 
@@ -374,7 +375,7 @@ fn validate_crate_setting_additional_build_file(
 /// Ensures crate settings associatd with the parsed [RazeSettings](crate::settings::RazeSettings) have valid crate settings
 fn validate_crate_settings(
   settings: &RazeSettings,
-  cargo_workspace_root: &Path,
+  cargo_workspace_root: &Utf8Path,
 ) -> Result<(), RazeError> {
   let mut errors = Vec::new();
 
@@ -417,7 +418,7 @@ fn validate_crate_settings(
 /// Verifies that the provided settings make sense.
 fn validate_settings(
   settings: &mut RazeSettings,
-  cargo_workspace_path: &Path,
+  cargo_workspace_path: &Utf8Path,
 ) -> Result<(), RazeError> {
   if !settings.workspace_path.starts_with("//") {
     return Err(RazeError::Config {

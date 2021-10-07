@@ -18,6 +18,7 @@ use std::{
   str::FromStr,
 };
 
+use camino::Utf8PathBuf;
 use cargo_platform::Cfg;
 
 use cfg_expr::{targets::get_builtin_target_by_triple, Expression, Predicate};
@@ -286,10 +287,10 @@ fn fetch_attrs(target: &str) -> Result<Vec<Cfg>> {
   )
 }
 
-pub fn get_workspace_member_path(manifest_path: &Path, workspace_root: &Path) -> Option<PathBuf> {
+pub fn get_workspace_member_path(manifest_path: &Utf8PathBuf, workspace_root: &Utf8PathBuf) -> Utf8PathBuf {
   assert!(manifest_path.ends_with("Cargo.toml"));
   // UNWRAP: A manifest path should always be a path to a 'Cargo.toml' file which should always have a parent directory
-  diff_paths(manifest_path.parent().unwrap(), workspace_root)
+  Utf8PathBuf::from_path_buf(diff_paths(manifest_path.parent().unwrap(), workspace_root).unwrap()).unwrap()
 }
 
 pub fn package_ident(package_name: &str, package_version: &str) -> String {

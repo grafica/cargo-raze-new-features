@@ -20,6 +20,7 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
+use camino::{Utf8PathBuf, Utf8Path};
 use cargo_lock::SourceId;
 use cargo_metadata::{DepKindInfo, DependencyKind, Node, Package, Source};
 use cargo_platform::Platform;
@@ -29,7 +30,7 @@ use crate::{
   context::{
     BuildableDependency, BuildableTarget, CrateContext, CrateDependencyContext,
     CrateTargetedDepContext, DependencyAlias, GitRepo, LicenseData, SourceDetails,
-    WorkspaceContext,
+    WorkspaceContext, WorkspaceMember
   },
   error::{RazeError, PLEASE_FILE_A_BUG},
   metadata::RazeMetadata,
@@ -107,10 +108,13 @@ impl<'planner> WorkspaceSubplanner<'planner> {
           if self.settings.binary_deps.contains_key(&pkg.name) {
             None
           } else {
-            util::get_workspace_member_path(
-              pkg.manifest_path.as_ref(),
-              self.metadata.metadata.workspace_root.as_ref(),
-            )
+            Some(WorkspaceMember {
+              path: util::get_workspace_member_path(
+                &pkg.manifest_path,
+                &self.metadata.metadata.workspace_root,
+              ),
+              id: pkg.id.clone(),
+            })
           }
         } else {
           None
@@ -278,7 +282,7 @@ impl<'planner> WorkspaceSubplanner<'planner> {
 
 impl<'planner> CrateSubplanner<'planner> {
   /// Builds a crate context from internal state.
-  fn produce_context(&self, cargo_workspace_root: &Path) -> Result<CrateContext> {
+  fn produce_context(&self, cargo_workspace_root: &Utf8Path) -> Result<CrateContext> {
     let package = self.crate_catalog_entry.package();
 
     let manifest_path = PathBuf::from(&package.manifest_path);
@@ -328,9 +332,9 @@ impl<'planner> CrateSubplanner<'planner> {
 
     targeted_deps.sort();
 
-    let mut workspace_member_dependents: Vec<PathBuf> = Vec::new();
-    let mut workspace_member_dev_dependents: Vec<PathBuf> = Vec::new();
-    let mut workspace_member_build_dependents: Vec<PathBuf> = Vec::new();
+    let mut workspace_member_dependents: Vec<Utf8PathBuf> = Vec::new();
+    let mut workspace_member_dev_dependents: Vec<Utf8PathBuf> = Vec::new();
+    let mut workspace_member_build_dependents: Vec<Utf8PathBuf> = Vec::new();
 
     for pkg_id in self.crate_catalog_entry.workspace_member_dependents.iter() {
       let workspace_member = self
@@ -349,16 +353,9 @@ impl<'planner> CrateSubplanner<'planner> {
           .unwrap();
 
         let workspace_member_path = util::get_workspace_member_path(
-          member.manifest_path.as_ref(),
-          self.crate_catalog.metadata.workspace_root.as_ref(),
-        )
-        .ok_or_else(|| {
-          anyhow!(
-            "Failed to generate workspace_member_path for {} and {}",
-            &package.manifest_path,
-            &self.crate_catalog.metadata.workspace_root
-          )
-        })?;
+          &member.manifest_path,
+          &self.crate_catalog.metadata.workspace_root,
+        );
 
         match current_dependency.kind {
           DependencyKind::Development => {
@@ -379,18 +376,19 @@ impl<'planner> CrateSubplanner<'planner> {
     // Generate canonicalized paths to additional build files so they're guaranteed to exist
     // and always locatable.
     let raze_settings = self.crate_settings.cloned().unwrap_or_default();
-    let canonical_additional_build_file = match &raze_settings.additional_build_file {
-      Some(build_file) => Some(
-        cargo_workspace_root
+    let canonical_additional_build_file: Option<Utf8PathBuf> = match &raze_settings.additional_build_file {
+      Some(build_file) => {
+        let cabf = cargo_workspace_root
           .join(&build_file)
           .canonicalize()
           .with_context(|| {
             format!(
               "Failed to find additional_build_file: {}",
-              &build_file.display()
+              &build_file.to_string()
             )
-          })?,
-      ),
+          })?;
+          Utf8PathBuf::from_path_buf(cabf).ok()
+      },
       None => None,
     };
 
