@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-  collections::HashMap,
-  str::{self},
-};
+use std::{collections::HashMap, str::{self}};
 
 use anyhow::{anyhow, Result};
 use camino::Utf8PathBuf;
@@ -29,6 +26,7 @@ use crate::{
 };
 
 /// An entry in the Crate catalog for a single crate.
+#[derive(Debug)]
 pub struct CrateCatalogEntry {
   // The package metadata for the crate
   pub package: Package,
@@ -83,6 +81,25 @@ impl CrateCatalogEntry {
     self.is_workspace_crate
   }
 
+  /// Yields the expected location of the build file (relative to execution path).
+  pub fn local_build_path(&self, settings: &RazeSettings) -> Result<String> {
+    if self.is_workspace_crate {
+      return self.local_build_file();
+    }
+
+    match settings.genmode {
+      GenMode::Remote => Ok(format!("remote/BUILD.{}.bazel", &self.package_ident,)),
+      GenMode::Vendored => Ok(format!(
+        "vendor/{}/{}",
+        &self.package_ident, settings.output_buildfile_suffix,
+      )),
+      // Settings should always have `genmode` set to one of the above fields
+      GenMode::Unspecified => Err(anyhow!(
+        "Unable to determine local build path. GenMode should not be Unspecified"
+      )),
+    }
+  }
+
   fn local_relative_dir(&self) -> String {
     let full_path = self.package.manifest_path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
     let root = format!("{}/", &self.workspace_root);
@@ -104,31 +121,11 @@ impl CrateCatalogEntry {
     ))
   }
 
-  /// Yields the expected location of the build file (relative to execution path).
-  pub fn local_build_path(&self, settings: &RazeSettings) -> Result<String> {
-    if self.is_workspace_crate {
-      return self.local_build_file();
-    }
-  
-    match settings.genmode {
-      GenMode::Remote => Ok(format!("remote/BUILD.{}.bazel", &self.package_ident,)),
-      GenMode::Vendored => Ok(format!(
-        "vendor/{}/{}",
-        &self.package_ident, settings.output_buildfile_suffix,
-      )),
-      // Settings should always have `genmode` set to one of the above fields
-      GenMode::Unspecified => Err(anyhow!(
-        "Unable to determine local build path. GenMode should not be Unspecified"
-      )),
-    }
-  }
-
   /// Yields the precise path to this dependency for the provided settings.
   pub fn workspace_path(&self, settings: &RazeSettings) -> Result<String> {
     if self.is_workspace_crate {
       return self.emit_local_crate();
     }
-  
     match settings.genmode {
       GenMode::Remote => Ok(format!(
         "@{}__{}__{}//",
@@ -157,9 +154,8 @@ impl CrateCatalogEntry {
   /// Emits a complete path to this dependency and default target using the given settings.
   pub fn workspace_path_and_default_target(&self, settings: &RazeSettings) -> Result<String> {
     if self.is_workspace_crate {
-      return self.local_build_file();
+      return self.emit_local_crate();
     }
-  
     match settings.genmode {
       GenMode::Remote => Ok(format!(
         "@{}__{}__{}//:{}",
