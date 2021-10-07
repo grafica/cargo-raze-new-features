@@ -146,7 +146,7 @@ fn make_package_map(crates: Vec<String>, packages: &Vec<Package>) -> Result<BTre
 // per-platform. The input format is specified in `run_cargo_tree`.
 //
 // This function does some basic text processing, and ignores
-// bogus and/or repetitive lines that cargo tree inserts.
+// bogus and/or repetitive lines that cargo-tree inserts.
 fn process_line(s: &String) -> Result<(String, Version, BTreeSet<String>)> {
   match (s.find(" "), s.find("|")) {
     (Some(space), Some(pipe)) => {
