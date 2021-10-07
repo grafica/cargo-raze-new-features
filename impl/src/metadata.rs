@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::{
-  collections::HashMap,
+  collections::{BTreeMap, HashMap},
   env::consts,
   fs,
   path::{Path, PathBuf},
@@ -130,7 +130,7 @@ pub struct RazeMetadata {
   // A map of all known crates with checksums. Use `checksums_for` to access data from this map.
   pub checksums: HashMap<String, String>,
 
-  pub features: HashMap<PackageId, Features>,
+  pub features: BTreeMap<PackageId, Features>,
 }
 
 impl RazeMetadata {
@@ -502,7 +502,7 @@ impl RazeMetadataFetcher {
       Some(settings) => {
         get_per_platform_features(cargo_dir.path(), settings, &metadata.packages)?
       },
-      None => HashMap::new(),
+      None => BTreeMap::new(),
     };
 
     Ok(RazeMetadata {

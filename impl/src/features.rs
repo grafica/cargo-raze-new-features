@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -24,7 +23,7 @@ use anyhow::{Error, Result};
 use cargo_metadata::{Package, PackageId, Version};
 use serde::{Deserialize, Serialize};
 
-type UnconsolidatedFeatures = HashMap<PackageId, HashMap<String, HashSet<String>>>;
+type UnconsolidatedFeatures = BTreeMap<PackageId, BTreeMap<String, BTreeSet<String>>>;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Features {
@@ -58,8 +57,8 @@ pub fn get_per_platform_features(
   cargo_dir: &Path,
   settings: &RazeSettings,
   packages: &Vec<Package>,
-) -> Result<HashMap<PackageId, Features>> {
-  let mut triples: HashSet<String> = HashSet::new();
+) -> Result<BTreeMap<PackageId, Features>> {
+  let mut triples: BTreeSet<String> = BTreeSet::new();
   if let Some(target) = settings.target.clone() {
     triples.insert(target);
   }
@@ -67,7 +66,7 @@ pub fn get_per_platform_features(
     triples.extend(targets);
   }
 
-  let mut triple_map = HashMap::new();
+  let mut triple_map = BTreeMap::new();
   for triple in triples {
     triple_map.insert(
       triple.clone(),
@@ -80,7 +79,7 @@ pub fn get_per_platform_features(
     .into_iter()
     .map(consolidate_features)
     .collect();
-  let mut m = HashMap::new();
+  let mut m = BTreeMap::new();
   for f in features {
     let (id, features) = f;
     m.insert(id, features);
@@ -94,7 +93,7 @@ fn run_cargo_tree(
   cargo_dir: &Path,
   triple: &str,
   packages: &Vec<Package>,
-) -> Result<HashMap<PackageId, HashSet<String>>> {
+) -> Result<BTreeMap<PackageId, BTreeSet<String>>> {
   // TODO: remove this
   eprintln!("Run cargo-tree for {}.", triple);
 
@@ -112,19 +111,19 @@ fn run_cargo_tree(
   assert!(tree_output.status.success());
 
   let text = String::from_utf8(tree_output.stdout)?;
-  let mut crates: HashSet<String> = HashSet::new();
+  let mut crates: BTreeSet<String> = BTreeSet::new();
   for line in text.lines().filter(|line| {
     // remove dedupe lines     // remove lines with no features
     !(line.ends_with("(*)") || line.ends_with("||") || line.is_empty())
   }) {
     crates.insert(line.to_string());
   }
-  let crate_vec: Vec<String> = crates.drain().collect();
+  let crate_vec: Vec<String> = crates.iter().map(|s| s.to_string()).collect();
   make_package_map(crate_vec, packages)
 }
 
-fn make_package_map(crates: Vec<String>, packages: &Vec<Package>) -> Result<HashMap<PackageId, HashSet<String>>> {
-  let mut package_map: HashMap<PackageId, HashSet<String>> = HashMap::new();
+fn make_package_map(crates: Vec<String>, packages: &Vec<Package>) -> Result<BTreeMap<PackageId, BTreeSet<String>>> {
+  let mut package_map: BTreeMap<PackageId, BTreeSet<String>> = BTreeMap::new();
   for c in &crates {
     let (name, version, features) = process_line(&c)?;
     let id = find_package_id(name, version, packages)?;
@@ -148,12 +147,12 @@ fn make_package_map(crates: Vec<String>, packages: &Vec<Package>) -> Result<Hash
 //
 // This function does some basic text processing, and ignores
 // bogus and/or repetitive lines that cargo tree inserts.
-fn process_line(s: &String) -> Result<(String, Version, HashSet<String>)> {
+fn process_line(s: &String) -> Result<(String, Version, BTreeSet<String>)> {
   match (s.find(" "), s.find("|")) {
     (Some(space), Some(pipe)) => {
       let (package, features) = s.split_at(pipe);
       let features_trimmed = features.replace("|", "");
-      let feature_set: HashSet<String> = features_trimmed
+      let feature_set: BTreeSet<String> = features_trimmed
         .split(",")
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
@@ -185,9 +184,9 @@ fn find_package_id(name: String, version: Version, packages: &Vec<Package>) -> R
 
 // TODO: this needs to be redone with a BTree and made generic for build targets
 fn transpose_keys(
-  triples: HashMap<String, HashMap<PackageId, HashSet<String>>>,
+  triples: BTreeMap<String, BTreeMap<PackageId, BTreeSet<String>>>,
 ) -> UnconsolidatedFeatures {
-  let mut package_map: HashMap<PackageId, HashMap<String, HashSet<String>>> = HashMap::new();
+  let mut package_map: BTreeMap<PackageId, BTreeMap<String, BTreeSet<String>>> = BTreeMap::new();
   for (triple, packages) in triples {
     for (pkg, features) in packages {
       match package_map.get_mut(&pkg) {
@@ -195,7 +194,7 @@ fn transpose_keys(
           triple_map.insert(triple.clone(), features);
         },
         None => {
-          let mut m = HashMap::new();
+          let mut m = BTreeMap::new();
           m.insert(triple.clone(), features);
           package_map.insert(pkg.clone(), m);
         }
@@ -206,17 +205,17 @@ fn transpose_keys(
 }
 
 // TODO: this needs to be redone with a BTree and made generic for build targets
-fn consolidate_features(pkg: (PackageId, HashMap<String, HashSet<String>>)) -> (PackageId, Features) {
+fn consolidate_features(pkg: (PackageId, BTreeMap<String, BTreeSet<String>>)) -> (PackageId, Features) {
   let (id, features) = pkg;
 
   // Find the features common to all targets
-  let sets: Vec<&HashSet<String>> = features.values().collect();
+  let sets: Vec<&BTreeSet<String>> = features.values().collect();
   let common_features = sets.iter().skip(1).fold(sets[0].clone(), |acc, hs| {
     acc.intersection(hs).cloned().collect()
   });
 
   // Partition the platform features
-  let mut platform_map: HashMap<String, Vec<String>> = HashMap::new();
+  let mut platform_map: BTreeMap<String, Vec<String>> = BTreeMap::new();
   for (platform, pfs) in features {
     for feature in pfs {
       if !common_features.contains(&feature) {
@@ -232,14 +231,12 @@ fn consolidate_features(pkg: (PackageId, HashMap<String, HashSet<String>>)) -> (
     }
   }
 
-  let mut platforms_to_features: HashMap<Vec<String>, Vec<String>> = HashMap::new();
+  let mut platforms_to_features: BTreeMap<Vec<String>, Vec<String>> = BTreeMap::new();
   for (feature, platforms) in platform_map {
     let mut key = platforms.clone();
-    key.sort();
     match platforms_to_features.get_mut(&key) {
       Some(features) => {
         features.push(feature);
-        features.sort();
       }
       None => {
         platforms_to_features.insert(key, vec![feature]);
@@ -260,18 +257,6 @@ fn consolidate_features(pkg: (PackageId, HashMap<String, HashSet<String>>)) -> (
     }
   })
   .collect();
-
-  // Sort to keep the output stable
-  targeted_features.sort_by(|a, b| {
-    if a.platforms.len() != b.platforms.len() {
-      a.platforms.len().cmp(&b.platforms.len())
-    } else if a.platforms.len() > 0 {
-      a.platforms[0].cmp(&b.platforms[0])
-    } else {
-      Ordering::Equal
-    }
-  });
-  targeted_features.reverse();
 
   (
     id,
