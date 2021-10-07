@@ -13,6 +13,7 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")  # buildifier: di
 _DEPENDENCIES = {
     "impl": {
         "anyhow": "@cargo_raze__anyhow__1_0_40//:anyhow",
+        "camino": "@cargo_raze__camino__1_0_4//:camino",
         "cargo-clone-crate": "@cargo_raze__cargo_clone_crate__0_1_6//:cargo_clone_crate",
         "cargo-lock": "@cargo_raze__cargo_lock__7_0_1//:cargo_lock",
         "cargo-platform": "@cargo_raze__cargo_platform__0_1_1//:cargo_platform",
@@ -597,6 +598,15 @@ def cargo_raze_fetch_remote_crates():
         sha256 = "0226944a63d1bf35a3b5f948dd7c59e263db83695c9e8bffc4037de02e30f1d7",
         strip_prefix = "cargo-platform-0.1.1",
         build_file = Label("//third_party/cargo/remote:BUILD.cargo-platform-0.1.1.bazel"),
+    )
+
+    maybe(
+        http_archive,
+        name = "cargo_raze__cargo_raze__0_12_0",
+        url = "",
+        type = "tar.gz",
+        strip_prefix = "cargo-raze-0.12.0",
+        build_file = Label("//third_party/cargo/remote:BUILD.cargo-raze-0.12.0.bazel"),
     )
 
     maybe(

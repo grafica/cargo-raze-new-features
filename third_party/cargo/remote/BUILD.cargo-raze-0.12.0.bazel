@@ -1,0 +1,133 @@
+"""
+@generated
+cargo-raze crate build file.
+
+DO NOT EDIT! Replaced on runs of cargo-raze
+"""
+
+# buildifier: disable=load
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
+# buildifier: disable=load
+load(
+    "@rules_rust//rust:defs.bzl",
+    "rust_binary",
+    "rust_library",
+    "rust_proc_macro",
+    "rust_test",
+)
+
+package(default_visibility = [
+    # Public for visibility by "@raze__crate__version//" targets.
+    #
+    # Prefer access through "//third_party/cargo", which limits external
+    # visibility to explicit Cargo.toml dependencies.
+    "//visibility:public",
+])
+
+licenses([
+    "notice",  # Apache-2.0 from expression "Apache-2.0"
+])
+
+# Generated Targets
+
+rust_binary(
+    # Prefix bin name to disambiguate from (probable) collision with lib name
+    # N.B.: The exact form of this is subject to change.
+    name = "cargo_bin_cargo_raze",
+    srcs = glob(["**/*.rs"]),
+    crate_features = [
+    ],
+    crate_root = "src/bin/cargo-raze.rs",
+    data = [],
+    edition = "2018",
+    proc_macro_deps = [
+        "@cargo_raze__serde_derive__1_0_126//:serde_derive",
+    ],
+    rustc_flags = [
+        "--cap-lints=allow",
+    ],
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+    version = "0.12.0",
+    # buildifier: leave-alone
+    deps = [
+        ":cargo_raze",
+        "@cargo_raze__anyhow__1_0_40//:anyhow",
+        "@cargo_raze__camino__1_0_4//:camino",
+        "@cargo_raze__cargo_clone_crate__0_1_6//:cargo_clone_crate",
+        "@cargo_raze__cargo_lock__7_0_1//:cargo_lock",
+        "@cargo_raze__cargo_metadata__0_14_0//:cargo_metadata",
+        "@cargo_raze__cargo_platform__0_1_1//:cargo_platform",
+        "@cargo_raze__cargo_toml__0_8_1//:cargo_toml",
+        "@cargo_raze__cfg_expr__0_6_0//:cfg_expr",
+        "@cargo_raze__crates_index__0_17_0//:crates_index",
+        "@cargo_raze__docopt__1_1_1//:docopt",
+        "@cargo_raze__glob__0_3_0//:glob",
+        "@cargo_raze__itertools__0_10_0//:itertools",
+        "@cargo_raze__log__0_4_14//:log",
+        "@cargo_raze__pathdiff__0_2_0//:pathdiff",
+        "@cargo_raze__regex__1_4_5//:regex",
+        "@cargo_raze__rustc_serialize__0_3_24//:rustc_serialize",
+        "@cargo_raze__semver__1_0_3//:semver",
+        "@cargo_raze__serde__1_0_126//:serde",
+        "@cargo_raze__serde_json__1_0_64//:serde_json",
+        "@cargo_raze__slug__0_1_4//:slug",
+        "@cargo_raze__spdx__0_3_6//:spdx",
+        "@cargo_raze__tempfile__3_2_0//:tempfile",
+        "@cargo_raze__tera__1_7_0//:tera",
+        "@cargo_raze__toml__0_5_8//:toml",
+        "@cargo_raze__url__2_2_1//:url",
+    ],
+)
+
+rust_library(
+    name = "cargo_raze",
+    srcs = glob(["**/*.rs"]),
+    crate_features = [
+    ],
+    crate_root = "src/lib.rs",
+    data = [],
+    edition = "2018",
+    proc_macro_deps = [
+        "@cargo_raze__serde_derive__1_0_126//:serde_derive",
+    ],
+    rustc_flags = [
+        "--cap-lints=allow",
+    ],
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+    version = "0.12.0",
+    # buildifier: leave-alone
+    deps = [
+        "@cargo_raze__anyhow__1_0_40//:anyhow",
+        "@cargo_raze__camino__1_0_4//:camino",
+        "@cargo_raze__cargo_clone_crate__0_1_6//:cargo_clone_crate",
+        "@cargo_raze__cargo_lock__7_0_1//:cargo_lock",
+        "@cargo_raze__cargo_metadata__0_14_0//:cargo_metadata",
+        "@cargo_raze__cargo_platform__0_1_1//:cargo_platform",
+        "@cargo_raze__cargo_toml__0_8_1//:cargo_toml",
+        "@cargo_raze__cfg_expr__0_6_0//:cfg_expr",
+        "@cargo_raze__crates_index__0_17_0//:crates_index",
+        "@cargo_raze__docopt__1_1_1//:docopt",
+        "@cargo_raze__glob__0_3_0//:glob",
+        "@cargo_raze__itertools__0_10_0//:itertools",
+        "@cargo_raze__log__0_4_14//:log",
+        "@cargo_raze__pathdiff__0_2_0//:pathdiff",
+        "@cargo_raze__regex__1_4_5//:regex",
+        "@cargo_raze__rustc_serialize__0_3_24//:rustc_serialize",
+        "@cargo_raze__semver__1_0_3//:semver",
+        "@cargo_raze__serde__1_0_126//:serde",
+        "@cargo_raze__serde_json__1_0_64//:serde_json",
+        "@cargo_raze__slug__0_1_4//:slug",
+        "@cargo_raze__spdx__0_3_6//:spdx",
+        "@cargo_raze__tempfile__3_2_0//:tempfile",
+        "@cargo_raze__tera__1_7_0//:tera",
+        "@cargo_raze__toml__0_5_8//:toml",
+        "@cargo_raze__url__2_2_1//:url",
+    ],
+)
