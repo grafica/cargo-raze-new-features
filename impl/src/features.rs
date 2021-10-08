@@ -233,7 +233,7 @@ fn consolidate_features(pkg: (PackageId, BTreeMap<String, BTreeSet<String>>)) ->
 
   let mut platforms_to_features: BTreeMap<Vec<String>, Vec<String>> = BTreeMap::new();
   for (feature, platforms) in platform_map {
-    let mut key = platforms.clone();
+    let key = platforms.clone();
     match platforms_to_features.get_mut(&key) {
       Some(features) => {
         features.push(feature);
@@ -247,7 +247,7 @@ fn consolidate_features(pkg: (PackageId, BTreeMap<String, BTreeSet<String>>)) ->
   let mut common_vec: Vec<String> = common_features.iter().map(|s| s.clone()).collect();
   common_vec.sort();
 
-  let mut targeted_features: Vec<TargetedFeatures> = platforms_to_features
+  let targeted_features: Vec<TargetedFeatures> = platforms_to_features
   .iter()
   .map(|ptf| {
     let (platforms, features) = ptf;
