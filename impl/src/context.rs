@@ -141,6 +141,28 @@ impl CrateDependencyContext {
       .cloned()
       .collect();
   }
+
+  pub fn dep_reference(&self, dep_type: &DepType) -> &BTreeSet<BuildableDependency> {
+    match dep_type {
+      DepType::Dependency => &self.dependencies,
+      DepType::ProcMacroDependency => &self.proc_macro_dependencies,
+      DepType::DataDependency => &self.data_dependencies,
+      DepType::BuildDependency => &self.build_dependencies,
+      DepType::BuildProcMacroDependency => &self.build_proc_macro_dependencies,
+      DepType::BuildDataDependency => &self.build_data_dependencies,
+      DepType::DevDependency => &self.dev_dependencies,
+    }
+  }
+}
+
+pub enum DepType {
+  Dependency,
+  ProcMacroDependency,
+  DataDependency,
+  BuildDependency,
+  BuildProcMacroDependency,
+  BuildDataDependency,
+  DevDependency,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

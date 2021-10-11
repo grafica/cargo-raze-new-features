@@ -12,12 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-  collections::{BTreeMap, HashMap, HashSet},
-  io, iter,
-  path::{Path, PathBuf},
-  str::FromStr,
-};
+use std::{collections::{BTreeMap, BTreeSet, HashMap, HashSet}, io, iter, path::{Path, PathBuf}, str::FromStr};
 
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8PathBuf, Utf8Path};
@@ -26,19 +21,7 @@ use cargo_metadata::{DepKindInfo, DependencyKind, Node, Package, Source};
 use cargo_platform::Platform;
 use itertools::Itertools;
 
-use crate::{
-  context::{
-    BuildableDependency, BuildableTarget, CrateContext, CrateDependencyContext,
-    CrateTargetedDepContext, DependencyAlias, GitRepo, LicenseData, SourceDetails,
-    WorkspaceContext, WorkspaceMember
-  },
-  error::{RazeError, PLEASE_FILE_A_BUG},
-  features::Features,
-  metadata::RazeMetadata,
-  planning::license,
-  settings::{CrateSettings, GenMode, RazeSettings},
-  util,
-};
+use crate::{context::{BuildableDependency, BuildableTarget, CrateContext, CrateDependencyContext, CrateTargetedDepContext, DepType, DependencyAlias, GitRepo, LicenseData, SourceDetails, WorkspaceContext, WorkspaceMember}, error::{RazeError, PLEASE_FILE_A_BUG}, features::Features, metadata::RazeMetadata, planning::license, settings::{CrateSettings, GenMode, RazeSettings}, util};
 
 use super::{
   crate_catalog::{CrateCatalog, CrateCatalogEntry},
@@ -334,7 +317,7 @@ impl<'planner> CrateSubplanner<'planner> {
       })
       .collect::<Result<Vec<_>>>()?;
 
-    targeted_deps.sort();
+    targeted_deps = consolidate_targeted_deps(&package.name, &targeted_deps);
 
     let mut workspace_member_dependents: Vec<Utf8PathBuf> = Vec::new();
     let mut workspace_member_dev_dependents: Vec<Utf8PathBuf> = Vec::new();
@@ -871,4 +854,106 @@ impl<'planner> CrateSubplanner<'planner> {
       )
     }
   }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct DepToPlatform {
+  pub buildable: BuildableDependency,
+  pub platforms: BTreeSet<String>,
+}
+
+impl DepToPlatform {
+  fn new(buildable: &BuildableDependency) -> DepToPlatform {
+    DepToPlatform {
+      buildable: buildable.clone(),
+      platforms: BTreeSet::new(),
+    }
+  }
+
+  fn add_targets(&mut self, platforms: &Vec<String>) {
+    for platform in platforms {
+      self.platforms.insert(platform.clone());
+    }
+  }
+}
+
+fn consolidate_targeted_deps(name: &String, targeted_deps: &Vec<CrateTargetedDepContext>) -> Vec<CrateTargetedDepContext> {
+  let dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::Dependency));
+  let proc_macro_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::ProcMacroDependency));
+  let data_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::DataDependency));
+  let build_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::BuildDependency));
+  let build_proc_macro_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::BuildProcMacroDependency));
+  let build_data_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::BuildDataDependency));
+  let dev_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::DevDependency));
+
+  // Consolidate the keys
+  let mut platform_keys: BTreeSet<BTreeSet<String>> = BTreeSet::new();
+  consolidate_keys(&mut platform_keys, &dependencies);
+  consolidate_keys(&mut platform_keys, &proc_macro_dependencies);
+  consolidate_keys(&mut platform_keys, &data_dependencies);
+  consolidate_keys(&mut platform_keys, &build_dependencies);
+  consolidate_keys(&mut platform_keys, &build_proc_macro_dependencies);
+  consolidate_keys(&mut platform_keys, &build_data_dependencies);
+  consolidate_keys(&mut platform_keys, &dev_dependencies);
+
+  // Return consolidated CrateTargetedDepContext objects
+  platform_keys.iter().map(|key| {
+    CrateTargetedDepContext {
+      target: "".to_string(),
+      deps: CrateDependencyContext {
+        dependencies: dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
+        proc_macro_dependencies: proc_macro_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
+        data_dependencies: data_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
+        build_dependencies: build_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
+        build_proc_macro_dependencies: build_proc_macro_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
+        build_data_dependencies: build_data_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
+        dev_dependencies: dev_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
+        aliased_dependencies: BTreeMap::new(),
+      },
+      platform_targets: key.into_iter().map(|s| s.to_string()).collect()
+    }
+  }).collect()
+}
+
+fn consolidate_keys(platform_keys: &mut BTreeSet<BTreeSet<String>>, platforms: &BTreeMap<BTreeSet<String>, BTreeSet<BuildableDependency>>) {
+  for platform_set in platforms {
+    platform_keys.insert(platform_set.0.clone());
+  }
+}
+
+fn group_by_dependency(targeted_deps: &Vec<CrateTargetedDepContext>, dep_type: DepType) -> BTreeMap<String, DepToPlatform> {
+  let mut dep_to_platforms: BTreeMap<String, DepToPlatform> = BTreeMap::new();
+  for target_dep in targeted_deps.into_iter() {
+    for dep in target_dep.deps.dep_reference(&dep_type) {
+      match dep_to_platforms.get_mut(&dep.buildable_target) {
+        Some(dep) => {
+          dep.add_targets(&target_dep.platform_targets);
+        }
+        None => {
+          let mut dtp = DepToPlatform::new(&dep);
+          dtp.add_targets(&target_dep.platform_targets);
+          dep_to_platforms.insert(dep.buildable_target.clone(), dtp);
+        }
+      }
+    }
+  }
+  dep_to_platforms
+}
+
+fn group_by_platform(dep_to_platorms: &BTreeMap<String, DepToPlatform>) -> BTreeMap<BTreeSet<String>, BTreeSet<BuildableDependency>> {
+  let mut platforms_to_deps: BTreeMap<BTreeSet<String>, BTreeSet<BuildableDependency>> = BTreeMap::new();
+  for dtp in dep_to_platorms.iter() {
+    match platforms_to_deps.get_mut(&dtp.1.platforms) {
+      Some(depset) => {
+        depset.insert(dtp.1.buildable.clone());
+      }
+      None => {
+        let mut depset = BTreeSet::new();
+        depset.insert(dtp.1.buildable.clone());
+        platforms_to_deps.insert(dtp.1.platforms.clone(), depset);
+      }
+    }
+  }
+
+  platforms_to_deps
 }
