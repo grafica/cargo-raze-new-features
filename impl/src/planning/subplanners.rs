@@ -885,6 +885,7 @@ fn consolidate_targeted_deps(name: &String, targeted_deps: &Vec<CrateTargetedDep
   let build_proc_macro_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::BuildProcMacroDependency));
   let build_data_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::BuildDataDependency));
   let dev_dependencies = group_by_platform(&group_by_dependency(targeted_deps, DepType::DevDependency));
+  let aliased_dependencies = group_alias_by_platform(group_alias_by_dependency(targeted_deps));
 
   // Consolidate the keys
   let mut platform_keys: BTreeSet<BTreeSet<String>> = BTreeSet::new();
@@ -908,7 +909,7 @@ fn consolidate_targeted_deps(name: &String, targeted_deps: &Vec<CrateTargetedDep
         build_proc_macro_dependencies: build_proc_macro_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
         build_data_dependencies: build_data_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
         dev_dependencies: dev_dependencies.get(key).unwrap_or(&BTreeSet::new()).clone(),
-        aliased_dependencies: BTreeMap::new(),
+        aliased_dependencies: aliased_dependencies.get(key).unwrap_or(&BTreeMap::new()).clone(),
       },
       platform_targets: key.into_iter().map(|s| s.to_string()).collect()
     }
@@ -956,4 +957,66 @@ fn group_by_platform(dep_to_platorms: &BTreeMap<String, DepToPlatform>) -> BTree
   }
 
   platforms_to_deps
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct AliasToPlatform {
+  pub buildable: BTreeMap<String, DependencyAlias>,
+  pub platforms: BTreeSet<String>,
+}
+
+impl AliasToPlatform {
+  fn new(alias: (&String, &DependencyAlias)) -> AliasToPlatform {
+    let mut key = BTreeMap::new();
+    key.insert(alias.0.clone(), alias.1.clone());
+    AliasToPlatform {
+      buildable: key,
+      platforms: BTreeSet::new(),
+    }
+  }
+
+  fn add_targets(&mut self, platforms: &Vec<String>) {
+    for platform in platforms {
+      self.platforms.insert(platform.clone());
+    }
+  }
+}
+
+fn group_alias_by_dependency(targeted_deps: &Vec<CrateTargetedDepContext>) -> BTreeMap<String, AliasToPlatform> {
+  let mut alias_to_platforms: BTreeMap<String, AliasToPlatform> = BTreeMap::new();
+  for target_dep in targeted_deps.into_iter() {
+    for dep in &target_dep.deps.aliased_dependencies {
+      match alias_to_platforms.get_mut(&dep.0.clone()) {
+        Some(dep) => {
+          dep.add_targets(&target_dep.platform_targets);
+        }
+        None => {
+          let mut atp = AliasToPlatform::new(dep.clone());
+          atp.add_targets(&target_dep.platform_targets);
+          alias_to_platforms.insert(dep.0.clone(), atp);
+        }
+      }
+    }
+  }
+  alias_to_platforms
+}
+
+
+fn group_alias_by_platform(alias_to_platorms: BTreeMap<String, AliasToPlatform>) -> BTreeMap<BTreeSet<String>, BTreeMap<String, DependencyAlias>> {
+  let mut platforms_to_aliases: BTreeMap<BTreeSet<String>, BTreeMap<String, DependencyAlias>> = BTreeMap::new();
+  for atp in alias_to_platorms.iter() {
+    match platforms_to_aliases.get_mut(&atp.1.platforms) {
+      Some(depset) => {
+        depset.append(&mut atp.1.buildable.clone());
+      }
+      None => {
+        let mut depset = BTreeSet::new();
+        depset.insert(atp.1.clone());
+        platforms_to_aliases.insert(atp.1.platforms.clone(), atp.1.buildable.clone());
+      }
+    }
+  }
+
+  platforms_to_aliases
 }
