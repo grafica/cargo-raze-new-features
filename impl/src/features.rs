@@ -75,6 +75,7 @@ pub fn get_per_platform_features(
 
   let mut triple_map = BTreeMap::new();
   for triple in triples {
+    eprintln!("triple: {:?}", triple);
     triple_map.insert(
       triple.clone(),
       // TODO: This part is slow, since it runs cargo-tree per-platform.
@@ -103,6 +104,8 @@ fn run_cargo_tree(cargo_dir: &Path, triple: &str) -> Result<Vec<String>> {
     .arg(format!("--target={}", triple))
     .arg("--format={p}|{f}|"); // The format to print output with
 
+  eprintln!("cargo_tree command: {:?}", cargo_tree);
+
   let tree_output = cargo_tree.output()?;
   assert!(tree_output.status.success());
 
@@ -113,6 +116,10 @@ fn run_cargo_tree(cargo_dir: &Path, triple: &str) -> Result<Vec<String>> {
     !(line.ends_with("(*)") || line.ends_with("||") || line.is_empty())
   }) {
     crates.push(line.to_string());
+  }
+
+  for crate in crates.iter() {
+    eprintln!("crate: {:?}", crate);
   }
   Ok(crates)
 }
@@ -202,6 +209,10 @@ fn transpose_keys(
 fn consolidate_features(
   pkg: (PackageId, BTreeMap<String, BTreeSet<String>>),
 ) -> (PackageId, Features) {
+  if pkg.0.repr.contains("tokio") {
+    eprintln!("pkg {:?}", pkg);
+  }
+
   let (id, features) = pkg;
 
   // Find the features common to all targets
