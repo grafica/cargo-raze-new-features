@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.17.0", features = ["fs", "time", "winapi"], default-features = false }
+h2 = {version = "0.3.3", default-features = false}
